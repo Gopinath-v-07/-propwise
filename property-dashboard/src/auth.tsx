@@ -31,8 +31,9 @@ const rolePaths: Record<Role, string> = {
 
 type AuthContextValue = {
   user: User | null
-  login: (email: string, password: string) => { ok: boolean; error?: string; user?: User }
-  switchRole: (role: Role) => { ok: boolean; error?: string; user?: User }
+  login: (email: string, password: string) => Promise<{ ok: boolean; error?: string; user?: User }>
+  signup: (name: string, email: string, password: string, role: string) => Promise<{ ok: boolean; error?: string; user?: User }>
+  switchRole: (role: Role) => Promise<{ ok: boolean; error?: string; user?: User }>
   updateUser: (updates: Pick<User, 'name' | 'email' | 'phone' | 'preferences'>) => void
   logout: () => void
   rolePath: (role: Role) => string
@@ -46,15 +47,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) as User : null
   })
 
-  const login = (email: string, password: string) => {
-    const nextUser = users[email.trim().toLowerCase()]
-    if (!nextUser || password !== 'demo123') return { ok: false, error: 'Invalid email or password. Try a demo account below.' }
-    setUser(nextUser)
-    window.localStorage.setItem('propwise_session', JSON.stringify(nextUser))
-    return { ok: true, user: nextUser }
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await fetch('https://propwise-backend.onrender.com/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      })
+      if (!response.ok) {
+        const nextUser = users[email.trim().toLowerCase()]
+        if (!nextUser || password !== 'demo123') return { ok: false, error: 'Invalid credentials. Try a demo account.' }
+        setUser(nextUser)
+        window.localStorage.setItem('propwise_session', JSON.stringify(nextUser))
+        return { ok: true, user: nextUser }
+      }
+      const nextUser = await response.json()
+      const roleMap: Record<string, Role> = { 'manager': 'PROPERTY_MANAGER', 'tenant': 'TENANT', 'staff': 'STAFF' }
+      nextUser.role = roleMap[nextUser.role] || 'TENANT'
+      nextUser.organization = 'Propwise Management'
+      setUser(nextUser)
+      window.localStorage.setItem('propwise_session', JSON.stringify(nextUser))
+      return { ok: true, user: nextUser }
+    } catch (err) {
+      const nextUser = users[email.trim().toLowerCase()]
+      if (!nextUser || password !== 'demo123') return { ok: false, error: 'Backend unreachable. Try a demo account.' }
+      setUser(nextUser)
+      window.localStorage.setItem('propwise_session', JSON.stringify(nextUser))
+      return { ok: true, user: nextUser }
+    }
   }
 
-  const switchRole = (role: Role) => {
+  const signup = async (name: string, email: string, password: string, role: string) => {
+    try {
+      const response = await fetch('https://propwise-backend.onrender.com/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password, role })
+      })
+      if (!response.ok) return { ok: false, error: 'Signup failed. Email may already exist.' }
+      return login(email, password)
+    } catch (err) {
+      return { ok: false, error: 'Backend unreachable. Cannot signup.' }
+    }
+  }
+
+  const switchRole = async (role: Role) => {
     const roleEmails: Record<Role, string> = {
       PROPERTY_MANAGER: 'manager@propwise.test',
       SUPER_ADMIN: 'admin@propwise.test',
@@ -78,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.localStorage.removeItem('propwise_session')
   }
 
-  return <AuthContext.Provider value={{ user, login, switchRole, updateUser, logout, rolePath: (role) => rolePaths[role] }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, signup, switchRole, updateUser, logout, rolePath: (role) => rolePaths[role] }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

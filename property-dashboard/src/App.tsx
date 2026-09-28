@@ -1166,9 +1166,9 @@ function LoginPage() {
       return
     }
     setSubmitting(true)
-    window.setTimeout(() => {
-      const result = login(email, password)
-      setSubmitting(false)
+    window.setTimeout(async () => {
+        const result = await login(email, password)
+        setSubmitting(false)
       if (!result.ok) {
         setError(result.error ?? 'Unable to sign in')
         return
@@ -1177,7 +1177,75 @@ function LoginPage() {
     }, 250)
   }
 
-  return <div className="auth-page"><div className="auth-brand"><Link className="landing-brand" to="/"><span className="brand-mark">P</span> propwise</Link></div><section className="auth-card"><p className="eyebrow">WELCOME BACK</p><h1>Sign in to Propwise</h1><p className="auth-copy">Manage your properties and keep every request moving.</p><form onSubmit={submit}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required /></label>{error && <p className="auth-error" role="alert">{error}</p>}<div className="auth-row"><label className="remember"><input type="checkbox" defaultChecked /> Remember me</label><Link to="/forgot-password">Forgot password?</Link></div><button className="primary-button auth-submit" type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button></form><div className="demo-accounts"><strong>Demo accounts (password: demo123)</strong><button type="button" onClick={() => { setEmail('manager@propwise.test'); setPassword('demo123') }}>Manager</button><button type="button" onClick={() => { setEmail('admin@propwise.test'); setPassword('demo123') }}>Admin</button><button type="button" onClick={() => { setEmail('tenant@propwise.test'); setPassword('demo123') }}>Tenant</button><button type="button" onClick={() => { setEmail('staff@propwise.test'); setPassword('demo123') }}>Staff</button></div></section></div>
+  return <div className="auth-page"><div className="auth-brand"><Link className="landing-brand" to="/"><span className="brand-mark">P</span> propwise</Link></div><section className="auth-card"><p className="eyebrow">WELCOME BACK</p><h1>Sign in to Propwise</h1><p className="auth-copy">Manage your properties and keep every request moving.</p><form onSubmit={submit}><label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label><label>Password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required /></label>{error && <p className="auth-error" role="alert">{error}</p>}<div className="auth-row"><label className="remember"><input type="checkbox" defaultChecked /> Remember me</label><Link to="/forgot-password">Forgot password?</Link></div><button className="primary-button auth-submit" type="submit" disabled={submitting}>{submitting ? 'Signing in…' : 'Sign in'}</button></form><div style={{textAlign: "center", marginTop: "1rem", fontSize: "14px", marginBottom: "1rem"}}>Do not have an account? <Link to="/signup" style={{color: "#6956d8", fontWeight: "bold"}}>Sign up here</Link></div>\n<div className="demo-accounts"><strong>Demo accounts (password: demo123)</strong><button type="button" onClick={() => { setEmail('manager@propwise.test'); setPassword('demo123') }}>Manager</button><button type="button" onClick={() => { setEmail('admin@propwise.test'); setPassword('demo123') }}>Admin</button><button type="button" onClick={() => { setEmail('tenant@propwise.test'); setPassword('demo123') }}>Tenant</button><button type="button" onClick={() => { setEmail('staff@propwise.test'); setPassword('demo123') }}>Staff</button></div></section></div>
+}
+
+
+function SignupPage() {
+  const { signup, rolePath } = useAuth()
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [role, setRole] = useState('TENANT')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async (event: import('react').FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setError('')
+    if (!name.trim() || !email.trim() || password.length < 6) {
+      setError('Please fill out all fields and use at least 6 characters for the password.')
+      return
+    }
+    setSubmitting(true)
+    if (signup) {
+      try {
+        const result = await signup(name, email, password, role)
+        setSubmitting(false)
+        if (!result.ok) {
+          setError(result.error ?? 'Unable to sign up')
+          return
+        }
+        navigate(result.user ? rolePath(result.user.role) : '/tenant/dashboard')
+      } catch (err) {
+        setSubmitting(false)
+        setError('An error occurred during signup.')
+      }
+    }
+  }
+
+  return (
+    <div className="auth-page">
+      <div className="auth-brand">
+        <Link className="landing-brand" to="/"><span className="brand-mark">P</span> propwise</Link>
+      </div>
+      <section className="auth-card">
+        <p className="eyebrow">NEW HERE?</p>
+        <h1>Create an account</h1>
+        <p className="auth-copy">Join Propwise to manage your properties or submit requests.</p>
+        <form onSubmit={submit}>
+          <label>Full Name<input type="text" value={name} onChange={(e) => setName(e.target.value)} required /></label>
+          <label>Email address<input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+          <label>Password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={6} required /></label>
+          <label>Role
+            <select value={role} onChange={(e) => setRole(e.target.value)} style={{width:'100%', padding:'10px', marginTop:'5px', marginBottom:'15px', borderRadius: '4px', border: '1px solid #ccc'}}>
+              <option value="TENANT">Tenant</option>
+              <option value="PROPERTY_MANAGER">Property Manager</option>
+              <option value="STAFF">Staff</option>
+            </select>
+          </label>
+          {error && <p className="auth-error" role="alert">{error}</p>}
+          <button className="primary-button auth-submit" type="submit" disabled={submitting}>
+            {submitting ? 'Creating account...' : 'Sign Up'}
+          </button>
+        </form>
+        <div style={{textAlign: 'center', marginTop: '1rem', fontSize: '14px'}}>
+          Already have an account? <Link to="/login" style={{color: '#6956d8', fontWeight: 'bold'}}>Sign in</Link>
+        </div>
+      </section>
+    </div>
+  )
 }
 
 function RecoveryPage({ reset = false }: { reset?: boolean }) {
@@ -1272,6 +1340,7 @@ function App() {
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />\n            <Route path="/signup" element={<SignupPage />} />
           <Route path="/forgot-password" element={<RecoveryPage />} />
           <Route path="/reset-password" element={<RecoveryPage reset />} />
           <Route path="/unauthorized" element={<AccessDeniedPage />} />
